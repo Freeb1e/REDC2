@@ -5,7 +5,7 @@ build:
 	$(MAKE) -C obj_dir -f VREDC3329_pipeline.mk VREDC3329_pipeline
 
 run: build
-	./obj_dir/VREDC3329
+	./obj_dir/VREDC3329_pipeline
 
 RUN: run
 

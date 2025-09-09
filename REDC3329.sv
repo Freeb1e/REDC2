@@ -34,7 +34,7 @@ module REDC3329_pipeline(
     parameter MOD = 3329;
     parameter MOD_INV = 3327;
     parameter R2_MOD = 2385;
-
+    assign done=(state==3'd2)?1'b1:1'b0;
     reg [2:0] state;
     reg [11:0] in_a_1,in_b_1;
     reg [11:0] in_2;
@@ -43,6 +43,7 @@ module REDC3329_pipeline(
     wire [23:0] out_1;
     wire [11:0] out_2;
     wire [11:0] out_3;
+    reg [11:0] out_4,out_5;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
@@ -91,7 +92,7 @@ module REDC3329_pipeline(
             end
             else if(state==3'd1||state==3'd5) begin
                 in_a_1<=out_3;
-                in_b_1<=out_3;
+                in_b_1<=out_5;
             end
             else begin
                 in_a_1<=12'd0;
@@ -112,6 +113,10 @@ module REDC3329_pipeline(
             in_2<=out_3;
             T_2<={12'b0,out_3};
         end
+        else if(state==3'd0)begin
+            in_2<=out_3;
+            T_2<={12'b0,out_3};
+        end
         else begin
             in_2<=out_1[11:0];
             T_2<=out_1;
@@ -122,10 +127,14 @@ module REDC3329_pipeline(
         if(!rst_n) begin
             in_3<=0;
             T_3<=0;
+            out_4<=0;
+            out_5<=0;
         end
         else begin
             in_3<=out_2;
             T_3<=T_2;
+            out_4<=out_3;
+            out_5<=out_4;
         end
     end
 endmodule
@@ -154,9 +163,11 @@ module REDC_part3(
     output [11:0] r
 );
     parameter MOD = 3329;
-    wire [23:0] r_raw;
-    assign r_raw=(a*MOD);
-    assign r_raw=(T_3+r_raw)>>12;
+    wire [24:0] r_raw,m;
+    wire [24:0] r_test;
+    assign m=(a*MOD);
+    assign r_test={1'b0,T_3}+m;
+    assign r_raw=(T_3+m)>>12;
     wire [12:0] r_final;
     assign r_final=(r_raw[12:0]>=MOD)?(r_raw[12:0]-MOD):r_raw[12:0];
     assign r=r_final[11:0];

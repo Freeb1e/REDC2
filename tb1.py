@@ -1,0 +1,25 @@
+a=1234
+b=2345
+OUTA1=a*2385
+OUTB1=b*2385
+print('OUTA1:',OUTA1)
+print('OUTB1:',OUTB1)
+OUTA1=OUTA1&0xFFF
+OUTB1=OUTB1&0xFFF
+print('OUTA1 mod 0xFFF:',OUTA1)
+print('OUTB1 mod 0xFFF:',OUTB1)
+OUTA2=OUTA1*3327
+OUTB2=OUTB1*3327
+print('OUTA2:',OUTA2)
+print('OUTB2:',OUTB2)
+OUTA2=OUTA2&0xFFF
+OUTB2=OUTB2&0xFFF
+print('OUTA2 mod 0xFFF:',OUTA2)
+print('OUTB2 mod 0xFFF:',OUTB2)
+print('finala=',((a*2385+OUTA2*3329)>>12)%3329)
+print('mb=',(OUTB2*3329))
+print('finalb=',((b*2385+OUTB2*3329)>>12)%3329)
+print((a*b)%3329)
+
+print('C1',955*1042%3329)
+print('C1prog',(((1042*955)&0xFFF)*3327)&0xFFF)
