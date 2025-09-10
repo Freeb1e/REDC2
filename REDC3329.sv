@@ -44,7 +44,8 @@ module REDC3329_pipeline(
     wire [11:0] out_2;
     wire [11:0] out_3;
     reg [11:0] out_4,out_5;
-
+    reg [1:0]busy1,busy2;
+    assign busy=(busy1!=0||busy2!=0)?1'b1:1'b0;
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             state<=3'd0;
@@ -86,6 +87,10 @@ module REDC3329_pipeline(
                 if(en)begin
                     in_a_1<=a;
                     in_b_1<=R2_MOD;
+                    if(state==3'd0)
+                    busy1<=2'd2;  
+                    else if(state==3'd4)
+                    busy2<=2'd2;    
                 end else begin
                     in_a_1<=12'd0;
                     in_b_1<=12'd0;
@@ -103,6 +108,11 @@ module REDC3329_pipeline(
             else if(state==3'd1||state==3'd5) begin
                 in_a_1<=out_3;
                 in_b_1<=out_5;
+                if(state==3'd1) begin
+                    busy1<=(busy1!=0)?busy1-2'b1:2'd0;
+                end else if(state==3'd5) begin
+                    busy2<=(busy2!=0)?busy2-2'b1:2'd0;
+                end
             end
             else begin
                 in_a_1<=12'd0;

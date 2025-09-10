@@ -5,7 +5,7 @@
 #include "VREDC3329_pipeline.h"
 #include "VREDC3329_pipeline___024root.h"
 
-#define MAX_SIM_TIME 400
+#define MAX_SIM_TIME 4000
 vluint64_t sim_time = 0;
 
 int main(int argc, char** argv, char** env) {
@@ -28,7 +28,7 @@ int main(int argc, char** argv, char** env) {
             dut->rst_n = 1;
             dut->en = 1;
         }
-        if(sim_time >200){
+        if(sim_time >60){
             dut->en = 0;
         }
   
@@ -63,8 +63,8 @@ int main(int argc, char** argv, char** env) {
                 std::cout<<"OK: a="<<a2<<" b="<<b2<<" r="<<dut->r<<std::endl;
             }
         }
-        if(1){
-            dut->en = (b%2==0)?1:1;
+        if(0){
+            dut->en = (b%2==0)?1:0;
         }
         dut->eval();
 
