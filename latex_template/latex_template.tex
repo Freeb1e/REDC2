@@ -1,0 +1,223 @@
+\documentclass[UTF8]{ctexart}
+
+\usepackage{amsmath}
+\usepackage{cases}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{verbatim}
+\usepackage{bm}
+\usepackage[margin=1in]{geometry}
+\usepackage{pifont} %ding{172}\ding{173}\ding{174}\ding{175}\ding{176}\ding{177}\ding{178}\ding{179}\ding{180}\ding{181}
+\geometry{a4paper}
+\usepackage{multirow} 
+\usepackage{fancyhdr}
+\usepackage{diagbox}
+\usepackage{subfigure}
+\usepackage{listings}
+\pagestyle{fancy}
+\fancyhf{}
+\title{REDC3329设计文档}
+\author{李远政 U202211014}
+\date{2025年9月}
+\pagenumbering{arabic}
+\begin{document}
+	\maketitle
+	\tableofcontents
+	\newpage
+	\fancyhead[L]{李远政}
+	\fancyhead[C]{REDC3329设计文档}
+	\fancyhead[R]{2025.9}
+	\fancyfoot[C]{\thepage}
+	\section{模块要求}
+根据任务要求实现一个12-bit位宽的流水线快速模乘器模块。模乘器输入a、b两个12-bit位宽的乘数，给定模数q=3329，在固定周期内输出a*b mod q。模块IO接口如表1所示，要求当模乘器输入使能有效时，a、b两个乘数输入，随后模乘器进行计算，在模乘器计算过程中，busy信号指示高电平为忙状态，否则为低电平指示空闲状态。在经过固定周期后，done信号由低变高，指示计算完成，同时输出结果。
+	\section{模块端口说明}
+
+	\begin{table}[h!]
+		\begin{center}
+			\caption{实验所需的元器件}
+			\setlength{\tabcolsep}{2pt}
+			\begin{tabular}{c c c c}
+\toprule
+        \textbf{端口} & \textbf{方向} & \textbf{位宽} & \textbf{描述} \\
+        \midrule
+        \texttt{clk}   & Input  & 1  & 系统时钟信号。 \\
+        \texttt{rst\_n} & Input  & 1  & 低电平有效的异步复位信号。 \\
+        \texttt{en}    & Input  & 1  & 使能信号。当 \texttt{en} 为高时，模块在下一个时钟周期锁存输入 \texttt{a} 和 \texttt{b}。 \\
+        \texttt{a}     & Input  & 12 & 输入操作数 A。 \\
+        \texttt{b}     & Input  & 12 & 输入操作数 B。 \\
+        \texttt{busy}  & Output & 1  & 忙信号。当模块正在处理数据时（从 \texttt{en} 拉高到 \texttt{done} 拉高之间），该信号为高。 \\
+        \texttt{done}  & Output & 1  & 完成信号。当一次模乘计算完成，且输出 \texttt{r} 有效时，该信号拉高一个时钟周期。 \\
+        \texttt{r}     & Output & 12 & 计算结果，即 \texttt{(a * b) mod 3329}。 \\
+        \bottomrule
+			\end{tabular}
+		\end{center}
+	\end{table}
+	\section{算法理论与算法验证}
+	\subsection{Montgomery模乘算法}
+可以观察到题目中所给出的3329是一个质数，所以可以使用蒙哥马利算法简化取模的计算过程。算法的基本原理是通过一系列的转换将本来对一个普通数N的取模转换为对一个2的幂次R的取模过程，从而可以通过移位算法节省大量计算资源。为了达到对一个数T转换模数的目的，先构造REDC(a,b,R)函数解决$(ab)\cdot R^{-1} (mod N)$的问题,这个函数是存在简便算法的。然后反复调用这个函数来实现模乘的过程。具体步骤如下：
+\subsubsection{REDC函数的设计}
+构造函数的基本思路是将大数T加上一个适当的数值m，使其能够被R整除，并且结果能够落在0到2N的范围内，并且仍然保证对N同余的特性。这样就可以直接使用简单的数据选择器实现对于N的取模。具体步骤如下：
+首先构造加数:
+$$
+m=N[T(mod R)N^\prime](modR)
+$$
+其中：
+$$
+N\cdot N^\prime=-1(mod R)
+$$
+相加之后得到t：
+$$
+t=T+m=T+N[T(mod R)N^\prime](modR)=T+[(NN^\prime)(modR)][(T(mod R))](modR)=T-T(modR)
+$$
+将t再modR的情况下进行化简：
+$$
+t(modR)=T+[(NN^\prime)(modR)][(T(mod R))](modR)=T-T(modR)
+$$
+从上面的变换中，不难看出这个t是可以被R整除的。接下来将t除以R得到：
+$$
+u=\frac{T+m}{R}
+$$
+现在来估算u的范围：
+$$
+T<N\cdot R
+$$
+$$
+N[T(mod R)N^\prime](modR)<N\cdot R
+$$
+$$
+ 0\leq t<2N
+$$
+因此可以直接通过比较t和N的大小来实现对N的取模：
+\subsubsection{REDC函数的乘法性质}
+因为直接调用REDC函数会带有R的逆元，无法直接得到结果，所以通过多次调用转换来实现模乘的过程。具体步骤如下：\\
+1.转换输入a,b为蒙哥马利域下的数：
+$$
+a_{mont}=REDC(a,R^2)
+$$
+$$
+b_{mont}=REDC(b,R^2)
+$$
+2.计算a,b的乘积：
+$$
+t=REDC(a_{mont},b_{mont})
+$$
+3.将结果转换回普通域下的数：
+$$
+r=REDC(t,1)
+$$
+这样就刚好通过两部约去了最开始引入的R的次方影响，得到了正确的结果。
+\section{电路设计}
+\subsection{流水线结构设计}
+	完成一次REDC操作一共需要调用三次乘法单元，分别是两输入数据相乘产生T，T与$N^\prime$相乘与R取模产生m，m与3329相乘产生最终的加数。而完成一次模乘操作需要调用四次REDC单元。所以如果使用组合逻辑完成REDC操作，则在完成一次乘法操作的过程中会导致另外两组乘法电路的空闲，降低了电路的利用率，因此可以通过设计合理的流水时序，将一个REDc模块拆解成三个乘法部分进行流水化改造，从而提高电路的利用率。\\
+	\subsection{REDC模块的拆分}
+	\subsection{流水时序设计}
+	下面通过表格列出四次调用REDC模块时，输入参数的数据来源：
+	\begin{table}[h!]
+		\begin{center}
+			\caption{REDC模块调用输入参数}
+			\setlength{\tabcolsep}{6pt}
+			\begin{tabular}{c c c}
+\toprule
+		\textbf{调用} & \textbf{data1} & \textbf{data2} \\
+		\midrule
+		$REDC(a,R^2)$   &  a & $R^2$  \\
+		$REDC(b,R^2)$   &  b & $R^2$  \\
+		$REDC(a_{mont},b_{mont})$   &  $a_{mont} $& $b_{mont}$  \\
+		$REDC(t,1) $  & t          & 1  \\
+		\bottomrule
+			\end{tabular}
+		\end{center}
+	\end{table}
+	观察表格，可以发现两个优化的方向。
+	\par 1.在保留一条流水线的情况下，四次调用之间存在很强的前后依赖关系，$a_{mont}$和$b_{mont}$的计算需要先后完成才能够进行第三次的调用，这会导致流水线存在单元空闲等待的情况发生，因此在设计时序的时候可以在a、b计算的时候插入其他数据组的计算。
+	\par 2.在最后一次调用中，data2恒为1，因此可以直接跳过第一步的乘法单元，直接接入REDC的第二部分进行计算，从而节省出来了一个时钟周期的乘法单元的调用。
+	\par 用A、B、C、D分别表示对于一组a、b输入数据的四次调用，用下标区分不同组的输入数据。其中C对于A、B步骤存在先后依赖关系，D对于C存在依赖关系并且D可以直接跳过part1开始计算，设计得到的流水线时序如下，下划线部分标识了一组数据的所有占用。：
+	\begin{table}[h!]
+		\begin{center}
+			\caption{流水线时序设计}
+			\setlength{\tabcolsep}{8pt}
+			\begin{tabular}{c c c c}
+\toprule
+		\textbf{clkcnt}&\textbf{part1} & \textbf{part2} & \textbf{part3} \\
+		\midrule
+		1&$\underline{\bm{A_1}}$   &$D_{-1}$ & $B_0$ \\
+		2&$C_0$   & $\underline{\bm{A_1}}$& $D_{-1}$\\
+		3&$\underline{\bm{B_1}}$   & $C_0$&$\underline{\bm{A_1}}$\\
+		4&$\times$   & $\underline{\bm{B_1}}$&$C_0$\\
+		5&$A_2$   & $D_0$&$\underline{\bm{B_1}}$\\
+		6&$\underline{\bm{C_1}}$   & $A_2$&$D_0$\\
+		7&$B_2$   & $\underline{\bm{C_1}}$&$A_2$\\
+		8&$\times$ & $B_2$&$\underline{\bm{C_1}}$\\
+		9&$A_3$   & $\underline{\bm{D_1}}$&$B_2$\\
+		10&$C_2$   & $A_3$&$\underline{\bm{D_1}}$\\
+		\bottomrule
+			\end{tabular}
+		\end{center}
+	\end{table}
+	\par 观察流水线时序可以发现，通过存在等待的周期中插入其他数据组的计算，可以大幅度提升流水线的使用效率，从而使得整个流水线在大多数时候几乎都处于完全占用的状态。从时序表也可看出，对于第一个上升沿输入的数据，需要延迟到第10个时钟周期才能够输出结果。
+	\section{模块验证}
+	\subsection{测试平台设计}
+	使用verilator作为仿真工具，编写测试平台对设计的流水线模乘器进行功能验证。由于设计的模乘器位宽不高，因此可以直接使用穷举的方式完成验证。验证平台的设计简图如下：
+	\section{FPGA综合实现报告}
+	\begin{comment}
+
+	\textsuperscript{\footnotesize\cite{shitailong}}
+
+
+	\begin{thebibliography}{99}
+\bibitem{shitailong}
+
+
+\begin{thebibliography}{99}
+\bibitem{shitailong}
+史泰龙. 胶体量子点短波红外探测器的器件物理研究[D]. 湖北:华中科技大学,2021.
+\bibitem{zongshu1}
+马润泽，张晓明，冯帅，等.红外光电探测技术研究现状及展望（特邀）［J］.光子学报，2021，50（10）：1004006
+\bibitem{zongshu2}
+李汝劼,唐利斌,张玉平,赵清.红外量子点及其光电探测器研究进展[J].红外技术,2020,42(5):405-419
+\bibitem{art1}
+Tiande Liu.Room-temperature infrared photodetectors with hybrid structure based on two-dimensional materials[J].《Chinese Physics B》,2019
+\bibitem{art2}
+尉鹏举.InAs/GaSbⅡ类超晶格多色红外探测器降低串音影响的研究进展[J].《真空与低温》,2025
+\end{thebibliography}
+
+
+史泰龙. 胶体量子点短波红外探测器的器件物理研究[D]. 湖北:华中科技大学,2021.
+
+\end{thebibliography}
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.5]{sbq2.png}
+	\caption{DIRS=1正向循环仿真}	
+\end{figure}
+
+\begin{itemize}
+		\item 在线上实习中学习了反相器制作工艺的相关知识。
+		\item 在线上实习中体验了光刻工艺的全流程，了解了光刻工艺的基本原理和步骤。
+		\item 在线下实习中参与了与量子点红外芯片成像相关的讲座，了解了量子点红外芯片的基本原理和应用。
+		\item 走进了实验室，学习了PbS CQD 红外探测器的制备的部分工艺步骤。
+		\item 自主对相关前沿知识进行了学习。
+	\end{itemize}
+
+	\begin{table}[h!]
+		\begin{center}
+			\caption{实验所需的元器件}
+			\setlength{\tabcolsep}{20pt}
+			\begin{tabular}{c c c}
+				\toprule
+				\textbf {名称} & \textbf {型号（参数）} & \textbf {数量}\\
+				\midrule
+				\textbf{FPGA开发板} 	&  Digilentt Basys2 & 1片\\
+				%\hline
+				\bottomrule
+			\end{tabular}
+		\end{center}
+	\end{table}
+
+	(Get-Content .\数电实验1.tex | Measure-Object -Character).Characters
+
+
+
+		\end{comment}
+\end{document}
