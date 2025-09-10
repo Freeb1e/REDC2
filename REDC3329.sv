@@ -34,7 +34,7 @@ module REDC3329_pipeline(
     parameter MOD = 3329;
     parameter MOD_INV = 3327;
     parameter R2_MOD = 2385;
-    assign done=(state==3'd2)?1'b1:1'b0;
+    assign done=(state==3'd2||state==3'd6)?1'b1:1'b0;
     reg [2:0] state;
     reg [11:0] in_a_1,in_b_1;
     reg [11:0] in_2;
@@ -74,7 +74,7 @@ module REDC3329_pipeline(
         .T_3(T_3),
         .r(out_3)
     );
-
+    assign r=done?out_3:12'hFFF;
 
     always_ff@(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
@@ -83,12 +83,22 @@ module REDC3329_pipeline(
         end
         else begin
             if(state==3'd0||state==3'd4) begin
-                in_a_1<=a;
-                in_b_1<=R2_MOD;
+                if(en)begin
+                    in_a_1<=a;
+                    in_b_1<=R2_MOD;
+                end else begin
+                    in_a_1<=12'd0;
+                    in_b_1<=12'd0;
+                end
             end
             else if(state==3'd2||state==3'd6) begin
+                if(en)begin
                 in_a_1<=b;
                 in_b_1<=R2_MOD;
+                end else begin
+                    in_a_1<=12'd0;
+                    in_b_1<=12'd0;
+                end
             end
             else if(state==3'd1||state==3'd5) begin
                 in_a_1<=out_3;
